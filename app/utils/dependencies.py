@@ -1,0 +1,145 @@
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
+from typing import Optional
+from ..database import get_db
+from ..models.user import User, UserRole, ROLE_HIERARCHY
+from ..utils.security import verify_access_token
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> User:
+    """Get the current authenticated user from JWT token"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="لم يتم التحقق من الهوية",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    payload = verify_access_token(token)
+    if payload is None:
+        raise credentials_exception
+    
+    user_id: str = payload.get("sub")
+    if user_id is None:
+        raise credentials_exception
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise credentials_exception
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="الحساب معطل"
+        )
+    
+    return user
+
+
+async def get_current_active_user(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """Ensure the user is active"""
+    if not current_user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="الحساب معطل"
+        )
+    return current_user
+
+
+async def require_system_owner(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """Require System Owner role - highest privilege (Head_Admin)"""
+    if not current_user.is_system_owner or current_user.role != UserRole.SYSTEM_OWNER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="صلاحيات مالك النظام مطلوبة"
+        )
+    return current_user
+
+
+async def require_admin(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """Require Admin or System Owner role"""
+    allowed_roles = [UserRole.ADMIN.value, UserRole.SYSTEM_OWNER.value]
+    if current_user.role not in allowed_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="صلاحيات المدير مطلوبة"
+        )
+    return current_user
+
+
+async def require_owners_agent(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """Require Owners Agent, Admin or System Owner role"""
+    allowed_roles = [UserRole.OWNERS_AGENT.value, UserRole.ADMIN.value, UserRole.SYSTEM_OWNER.value]
+    if current_user.role not in allowed_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="صلاحيات وكيل الملاك أو أعلى مطلوبة"
+        )
+    return current_user
+
+
+async def require_customers_agent(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """Require any authenticated user (Customers Agent or higher)"""
+    # جميع المستخدمين المسجلين يمكنهم الوصول
+    return current_user
+
+
+def get_optional_user(
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> Optional[User]:
+    """Get user if authenticated, None otherwise"""
+    if not token:
+        return None
+    
+    payload = verify_access_token(token)
+    if payload is None:
+        return None
+    
+    user_id: str = payload.get("sub")
+    if user_id is None:
+        return None
+    
+    return db.query(User).filter(User.id == user_id).first()
+
+
+def can_access_page(user: User, page: str) -> bool:
+    """التحقق من صلاحية الوصول لصفحة معينة"""
+    page_permissions = {
+        # الصفحات المتاحة لكل رتبة
+        UserRole.SYSTEM_OWNER.value: ["all"],
+        UserRole.ADMIN.value: ["all"],
+        UserRole.OWNERS_AGENT.value: ["home", "owners", "units", "projects"],
+        UserRole.CUSTOMERS_AGENT.value: ["units", "bookings"],
+    }
+    
+    user_pages = page_permissions.get(user.role, [])
+    return "all" in user_pages or page in user_pages
+
+
+def can_edit_on_page(user: User, page: str) -> bool:
+    """التحقق من صلاحية التعديل في صفحة معينة"""
+    edit_permissions = {
+        UserRole.SYSTEM_OWNER.value: ["all"],
+        UserRole.ADMIN.value: ["all"],
+        UserRole.OWNERS_AGENT.value: ["owners", "units", "projects"],
+        UserRole.CUSTOMERS_AGENT.value: ["bookings"],  # يعدل فقط على الحجوزات
+    }
+    
+    user_edit_pages = edit_permissions.get(user.role, [])
+    return "all" in user_edit_pages or page in user_edit_pages
