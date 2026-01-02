@@ -11,6 +11,7 @@ from ..utils.security import hash_password
 router = APIRouter(prefix="/api/users", tags=["المستخدمين"])
 
 
+@router.get("")
 @router.get("/", response_model=List[UserResponse])
 async def get_all_users(
     db: Session = Depends(get_db),
@@ -58,6 +59,7 @@ async def get_user(
     return user
 
 
+@router.post("")
 @router.post("/", response_model=UserResponse)
 async def create_user(
     user_data: UserCreate,

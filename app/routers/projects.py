@@ -13,6 +13,7 @@ from ..models.user import User
 router = APIRouter(prefix="/api/projects", tags=["المشاريع"])
 
 
+@router.get("")
 @router.get("/", response_model=List[ProjectResponse])
 async def get_all_projects(
     db: Session = Depends(get_db),
@@ -85,6 +86,7 @@ async def get_project(
     )
 
 
+@router.post("")
 @router.post("/", response_model=ProjectResponse)
 async def create_project(
     project_data: ProjectCreate,

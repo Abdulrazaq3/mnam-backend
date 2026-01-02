@@ -14,6 +14,7 @@ from ..models.user import User
 router = APIRouter(prefix="/api/owners", tags=["الملاك"])
 
 
+@router.get("")
 @router.get("/", response_model=List[OwnerResponse])
 async def get_all_owners(
     db: Session = Depends(get_db),
@@ -103,6 +104,7 @@ async def get_owner_projects(
     ]
 
 
+@router.post("")
 @router.post("/", response_model=OwnerResponse)
 async def create_owner(
     owner_data: OwnerCreate,

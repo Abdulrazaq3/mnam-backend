@@ -16,6 +16,7 @@ from ..models.user import User
 router = APIRouter(prefix="/api/transactions", tags=["المعاملات المالية"])
 
 
+@router.get("")
 @router.get("/", response_model=List[TransactionResponse])
 async def get_all_transactions(
     project_id: Optional[str] = None,
@@ -126,6 +127,7 @@ async def get_transaction(
     )
 
 
+@router.post("")
 @router.post("/", response_model=TransactionResponse)
 async def create_transaction(
     transaction_data: TransactionCreate,

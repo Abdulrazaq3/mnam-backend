@@ -57,6 +57,7 @@ def calculate_booking_price(unit: Unit, check_in: date, check_out: date) -> Deci
     return total
 
 
+@router.get("")
 @router.get("/", response_model=List[BookingResponse])
 async def get_all_bookings(
     db: Session = Depends(get_db),
@@ -196,6 +197,7 @@ async def get_booking(
     )
 
 
+@router.post("")
 @router.post("/", response_model=BookingResponse)
 async def create_booking(
     booking_data: BookingCreate,

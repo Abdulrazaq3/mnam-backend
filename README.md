@@ -56,3 +56,13 @@ mnam-backend/
 - `/api/transactions` - المعاملات المالية
 - `/api/dashboard` - لوحة التحكم
 - `/api/ai` - الذكاء الاصطناعي
+
+## 🔗 ملاحظة حول المسارات (Trailing Slash)
+جميع الـ endpoints تدعم الوصول **مع وبدون** trailing slash لمنع الـ 307 Redirects:
+```
+GET /api/owners   ✅
+GET /api/owners/  ✅
+POST /api/units   ✅
+POST /api/units/  ✅
+```
+هذا يضمن عمل الـ API بشكل صحيح في بيئات الإنتاج (مثل Railway/Vercel) حيث قد يتم حظر الـ HTTP redirects.

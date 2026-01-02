@@ -12,6 +12,7 @@ from ..models.user import User
 router = APIRouter(prefix="/api/units", tags=["الوحدات"])
 
 
+@router.get("")
 @router.get("/", response_model=List[UnitResponse])
 async def get_all_units(
     db: Session = Depends(get_db),
@@ -127,6 +128,7 @@ async def get_unit(
     )
 
 
+@router.post("")
 @router.post("/", response_model=UnitResponse)
 async def create_unit(
     unit_data: UnitCreate,
