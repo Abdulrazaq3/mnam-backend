@@ -1,14 +1,46 @@
 import os
+import sys
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # Get database URL directly from environment variable
-# Railway sets DATABASE_URL automatically when you add PostgreSQL
-database_url = os.environ.get("DATABASE_URL", "sqlite:///./mnam.db")
+database_url = os.environ.get("DATABASE_URL")
 
-# Print for debugging (remove in production)
-print(f"🔗 Database URL prefix: {database_url[:30]}...")
+# Debug: Print all environment variables starting with DATABASE or POSTGRES
+print("=" * 50)
+print("🔍 Checking environment variables...")
+for key, value in os.environ.items():
+    if "DATABASE" in key.upper() or "POSTGRES" in key.upper() or "PG" in key.upper():
+        # Hide password in URL
+        safe_value = value[:50] + "..." if len(value) > 50 else value
+        print(f"   {key} = {safe_value}")
+print("=" * 50)
+
+# If no DATABASE_URL, check for Railway-specific variables
+if not database_url:
+    # Try Railway's internal PostgreSQL URL format
+    pg_host = os.environ.get("PGHOST")
+    pg_port = os.environ.get("PGPORT", "5432")
+    pg_user = os.environ.get("PGUSER") or os.environ.get("POSTGRES_USER")
+    pg_password = os.environ.get("PGPASSWORD") or os.environ.get("POSTGRES_PASSWORD")
+    pg_database = os.environ.get("PGDATABASE") or os.environ.get("POSTGRES_DB")
+    
+    if pg_host and pg_user and pg_password and pg_database:
+        database_url = f"postgresql://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_database}"
+        print(f"✅ Built DATABASE_URL from PG* variables: {pg_host}:{pg_port}/{pg_database}")
+    else:
+        # Check if we're in production without a database
+        if os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("ENVIRONMENT") == "production":
+            print("❌ ERROR: DATABASE_URL not set in production!")
+            print("   Please add PostgreSQL to your Railway project and link DATABASE_URL")
+            sys.exit(1)
+        else:
+            # Development mode - use SQLite
+            database_url = "sqlite:///./mnam.db"
+            print("⚠️  Using SQLite for development")
+
+print(f"🔗 Using database: {database_url[:40]}...")
 
 # Railway provides DATABASE_URL with postgres:// prefix, but SQLAlchemy needs postgresql://
 if database_url.startswith("postgres://"):
@@ -25,8 +57,8 @@ is_production = os.environ.get("ENVIRONMENT", "development") == "production"
 engine = create_engine(
     database_url,
     connect_args=connect_args,
-    echo=not is_production,  # Disable SQL logging in production
-    pool_pre_ping=True,  # Test connection before using
+    echo=not is_production,
+    pool_pre_ping=True,
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
