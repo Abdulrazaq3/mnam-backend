@@ -38,6 +38,7 @@ class UnitBase(BaseModel):
     price_in_weekends: Decimal = Decimal("0")
     amenities: List[str] = []
     description: Optional[str] = None
+    permit_no: Optional[str] = None
 
 
 class UnitCreate(UnitBase):
@@ -56,6 +57,7 @@ class UnitUpdate(BaseModel):
     price_in_weekends: Optional[Decimal] = None
     amenities: Optional[List[str]] = None
     description: Optional[str] = None
+    permit_no: Optional[str] = None
 
 
 class UnitResponse(UnitBase):

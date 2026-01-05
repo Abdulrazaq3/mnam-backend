@@ -42,6 +42,7 @@ class Unit(Base):
     price_in_weekends = Column(Numeric(10, 2), default=0)
     amenities = Column(JSON, default=list)
     description = Column(Text, nullable=True)
+    permit_no = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

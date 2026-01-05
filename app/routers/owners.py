@@ -30,13 +30,7 @@ async def get_all_owners(
             "id": owner.id,
             "owner_name": owner.owner_name,
             "owner_mobile_phone": owner.owner_mobile_phone,
-            "contract_no": owner.contract_no,
-            "commission_percent": owner.commission_percent,
-            "contract_status": owner.contract_status,
-            "contract_duration": owner.contract_duration,
             "paypal_email": owner.paypal_email,
-            "bank_iban": owner.bank_iban,
-            "bank_name": owner.bank_name,
             "note": owner.note,
             "created_at": owner.created_at,
             "updated_at": owner.updated_at,
@@ -73,7 +67,13 @@ async def get_owner(
         )
     
     return OwnerResponse(
-        **owner.__dict__,
+        id=owner.id,
+        owner_name=owner.owner_name,
+        owner_mobile_phone=owner.owner_mobile_phone,
+        paypal_email=owner.paypal_email,
+        note=owner.note,
+        created_at=owner.created_at,
+        updated_at=owner.updated_at,
         project_count=len(owner.projects),
         unit_count=sum(len(p.units) for p in owner.projects)
     )
@@ -115,13 +115,7 @@ async def create_owner(
     new_owner = Owner(
         owner_name=owner_data.owner_name,
         owner_mobile_phone=owner_data.owner_mobile_phone,
-        contract_no=owner_data.contract_no,
-        commission_percent=owner_data.commission_percent,
-        contract_status=owner_data.contract_status.value,
-        contract_duration=owner_data.contract_duration,
         paypal_email=owner_data.paypal_email,
-        bank_iban=owner_data.bank_iban,
-        bank_name=owner_data.bank_name,
         note=owner_data.note
     )
     
@@ -130,7 +124,13 @@ async def create_owner(
     db.refresh(new_owner)
     
     return OwnerResponse(
-        **new_owner.__dict__,
+        id=new_owner.id,
+        owner_name=new_owner.owner_name,
+        owner_mobile_phone=new_owner.owner_mobile_phone,
+        paypal_email=new_owner.paypal_email,
+        note=new_owner.note,
+        created_at=new_owner.created_at,
+        updated_at=new_owner.updated_at,
         project_count=0,
         unit_count=0
     )
@@ -153,16 +153,19 @@ async def update_owner(
     
     update_data = owner_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
-        if field == "contract_status" and value:
-            setattr(owner, field, value.value)
-        else:
-            setattr(owner, field, value)
+        setattr(owner, field, value)
     
     db.commit()
     db.refresh(owner)
     
     return OwnerResponse(
-        **owner.__dict__,
+        id=owner.id,
+        owner_name=owner.owner_name,
+        owner_mobile_phone=owner.owner_mobile_phone,
+        paypal_email=owner.paypal_email,
+        note=owner.note,
+        created_at=owner.created_at,
+        updated_at=owner.updated_at,
         project_count=len(owner.projects),
         unit_count=sum(len(p.units) for p in owner.projects)
     )

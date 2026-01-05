@@ -48,3 +48,35 @@ class FinancialSummary(BaseModel):
     total_income: Decimal = Decimal("0")
     total_expense: Decimal = Decimal("0")
     net_profit: Decimal = Decimal("0")
+
+
+class DailyChallenge(BaseModel):
+    """تحدي اليوم"""
+    unit_occupancy: int = 0  # إشغال الوحدات
+    guest_nights: int = 0  # ليالي الضيوف
+    today_income: Decimal = Decimal("0")  # دخل اليوم
+    total_cancellations: int = 0  # إجمالي الإلغاءات
+
+
+class WeeklyPerformance(BaseModel):
+    """أداء الأسبوع"""
+    total_nights: int = 0  # إجمالي الليالي
+    weekly_occupancy_rate: float = 0.0  # نسبة الإشغال الأسبوعي
+    revenue_collection: Decimal = Decimal("0")  # تحصيل الإيرادات
+    total_cancellations: int = 0  # إجمالي الإلغاءات
+
+
+class MonthlyHarvest(BaseModel):
+    """الحصاد الشهري"""
+    monthly_occupancy_rate: float = 0.0  # معدل الإشغال الشهري
+    nights_sales: int = 0  # مبيعات الليالي
+    project_income: Decimal = Decimal("0")  # دخل المشاريع
+    total_cancellations: int = 0  # إجمالي الإلغاء
+
+
+class TeamAchievement(BaseModel):
+    """رحلة إنجاز الفريق"""
+    daily_challenge: DailyChallenge = DailyChallenge()
+    weekly_performance: WeeklyPerformance = WeeklyPerformance()
+    monthly_harvest: MonthlyHarvest = MonthlyHarvest()
+

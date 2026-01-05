@@ -39,6 +39,7 @@ async def get_all_units(
             price_in_weekends=unit.price_in_weekends,
             amenities=unit.amenities or [],
             description=unit.description,
+            permit_no=unit.permit_no,
             project_name=project.name if project else "غير معروف",
             owner_name=owner_name,
             city=project.city if project else None,
@@ -120,6 +121,7 @@ async def get_unit(
         price_in_weekends=unit.price_in_weekends,
         amenities=unit.amenities or [],
         description=unit.description,
+        permit_no=unit.permit_no,
         project_name=project.name if project else "غير معروف",
         owner_name=owner_name,
         city=project.city if project else None,
@@ -155,7 +157,8 @@ async def create_unit(
         price_days_of_week=unit_data.price_days_of_week,
         price_in_weekends=unit_data.price_in_weekends,
         amenities=unit_data.amenities,
-        description=unit_data.description
+        description=unit_data.description,
+        permit_no=unit_data.permit_no
     )
     
     db.add(new_unit)
@@ -177,6 +180,7 @@ async def create_unit(
         price_in_weekends=new_unit.price_in_weekends,
         amenities=new_unit.amenities or [],
         description=new_unit.description,
+        permit_no=new_unit.permit_no,
         project_name=project.name,
         owner_name=owner_name,
         city=project.city,
@@ -226,6 +230,7 @@ async def update_unit(
         price_in_weekends=unit.price_in_weekends,
         amenities=unit.amenities or [],
         description=unit.description,
+        permit_no=unit.permit_no,
         project_name=project.name if project else "غير معروف",
         owner_name=owner_name,
         city=project.city if project else None,

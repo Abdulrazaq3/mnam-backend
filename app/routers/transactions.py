@@ -2,14 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from ..database import get_db
 from ..models.transaction import Transaction
 from ..models.project import Project
 from ..models.unit import Unit
-from ..schemas.transaction import TransactionResponse, TransactionCreate, TransactionUpdate, FinancialSummary
+from ..models.booking import Booking
+from ..schemas.transaction import (
+    TransactionResponse, TransactionCreate, TransactionUpdate, 
+    FinancialSummary, TeamAchievement, DailyChallenge, WeeklyPerformance, MonthlyHarvest
+)
 from ..utils.dependencies import get_current_user
 from ..models.user import User
 
@@ -92,6 +96,121 @@ async def get_financial_summary(
         total_income=income,
         total_expense=expense,
         net_profit=income - expense
+    )
+
+
+@router.get("/team-achievement", response_model=TeamAchievement)
+async def get_team_achievement(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """رحلة إنجاز الفريق - إحصائيات يومية وأسبوعية وشهرية"""
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())
+    month_start = date(today.year, today.month, 1)
+    
+    total_units = db.query(Unit).count() or 1  # Avoid division by zero
+    
+    # ========== تحدي اليوم ==========
+    # إشغال الوحدات اليوم
+    today_occupancy = db.query(Booking).filter(
+        Booking.check_in_date <= today,
+        Booking.check_out_date > today,
+        Booking.status.in_(["مؤكد", "دخول"])
+    ).count()
+    
+    # ليالي الضيوف اليوم (عدد الحجوزات النشطة)
+    today_guest_nights = today_occupancy
+    
+    # دخل اليوم
+    today_income = db.query(func.coalesce(func.sum(Booking.total_price), 0)).filter(
+        func.date(Booking.created_at) == today,
+        Booking.status.in_(["مؤكد", "دخول", "مكتمل"])
+    ).scalar() or Decimal("0")
+    
+    # إلغاءات اليوم
+    today_cancellations = db.query(Booking).filter(
+        func.date(Booking.created_at) == today,
+        Booking.status == "ملغي"
+    ).count()
+    
+    daily_challenge = DailyChallenge(
+        unit_occupancy=today_occupancy,
+        guest_nights=today_guest_nights,
+        today_income=today_income,
+        total_cancellations=today_cancellations
+    )
+    
+    # ========== أداء الأسبوع ==========
+    # إجمالي الليالي هذا الأسبوع
+    weekly_nights = db.query(Booking).filter(
+        Booking.check_in_date >= week_start,
+        Booking.check_in_date <= today,
+        Booking.status.in_(["مؤكد", "دخول", "مكتمل"])
+    ).count()
+    
+    # نسبة الإشغال الأسبوعي (متوسط)
+    days_in_week = (today - week_start).days + 1
+    weekly_avg_occupancy = db.query(func.count(Booking.id)).filter(
+        Booking.check_in_date >= week_start,
+        Booking.status.in_(["مؤكد", "دخول", "مكتمل"])
+    ).scalar() or 0
+    weekly_occupancy_rate = round((weekly_avg_occupancy / (total_units * days_in_week)) * 100, 1) if days_in_week > 0 else 0
+    
+    # تحصيل الإيرادات الأسبوعي
+    weekly_revenue = db.query(func.coalesce(func.sum(Booking.total_price), 0)).filter(
+        Booking.check_in_date >= week_start,
+        Booking.status.in_(["مؤكد", "دخول", "مكتمل"])
+    ).scalar() or Decimal("0")
+    
+    # إلغاءات الأسبوع
+    weekly_cancellations = db.query(Booking).filter(
+        func.date(Booking.created_at) >= week_start,
+        Booking.status == "ملغي"
+    ).count()
+    
+    weekly_performance = WeeklyPerformance(
+        total_nights=weekly_nights,
+        weekly_occupancy_rate=min(weekly_occupancy_rate, 100),
+        revenue_collection=weekly_revenue,
+        total_cancellations=weekly_cancellations
+    )
+    
+    # ========== الحصاد الشهري ==========
+    # معدل الإشغال الشهري
+    days_in_month = (today - month_start).days + 1
+    monthly_bookings = db.query(func.count(Booking.id)).filter(
+        Booking.check_in_date >= month_start,
+        Booking.status.in_(["مؤكد", "دخول", "مكتمل"])
+    ).scalar() or 0
+    monthly_occupancy_rate = round((monthly_bookings / (total_units * days_in_month)) * 100, 1) if days_in_month > 0 else 0
+    
+    # مبيعات الليالي الشهرية
+    monthly_nights_sales = monthly_bookings
+    
+    # دخل المشاريع الشهري
+    monthly_project_income = db.query(func.coalesce(func.sum(Booking.total_price), 0)).filter(
+        Booking.check_in_date >= month_start,
+        Booking.status.in_(["مؤكد", "دخول", "مكتمل"])
+    ).scalar() or Decimal("0")
+    
+    # إلغاءات الشهر
+    monthly_cancellations = db.query(Booking).filter(
+        func.date(Booking.created_at) >= month_start,
+        Booking.status == "ملغي"
+    ).count()
+    
+    monthly_harvest = MonthlyHarvest(
+        monthly_occupancy_rate=min(monthly_occupancy_rate, 100),
+        nights_sales=monthly_nights_sales,
+        project_income=monthly_project_income,
+        total_cancellations=monthly_cancellations
+    )
+    
+    return TeamAchievement(
+        daily_challenge=daily_challenge,
+        weekly_performance=weekly_performance,
+        monthly_harvest=monthly_harvest
     )
 
 

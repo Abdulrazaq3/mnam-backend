@@ -31,10 +31,15 @@ async def get_all_projects(
             status=project.status,
             city=project.city,
             district=project.district,
-            permit_no=project.permit_no,
             security_guard_phone=project.security_guard_phone,
             property_manager_phone=project.property_manager_phone,
             map_url=project.map_url,
+            contract_no=project.contract_no,
+            contract_status=project.contract_status,
+            contract_duration=project.contract_duration,
+            commission_percent=project.commission_percent,
+            bank_name=project.bank_name,
+            bank_iban=project.bank_iban,
             owner_name=project.owner.owner_name if project.owner else "غير معروف",
             unit_count=len(project.units),
             created_at=project.created_at,
@@ -75,10 +80,15 @@ async def get_project(
         status=project.status,
         city=project.city,
         district=project.district,
-        permit_no=project.permit_no,
         security_guard_phone=project.security_guard_phone,
         property_manager_phone=project.property_manager_phone,
         map_url=project.map_url,
+        contract_no=project.contract_no,
+        contract_status=project.contract_status,
+        contract_duration=project.contract_duration,
+        commission_percent=project.commission_percent,
+        bank_name=project.bank_name,
+        bank_iban=project.bank_iban,
         owner_name=project.owner.owner_name if project.owner else "غير معروف",
         unit_count=len(project.units),
         created_at=project.created_at,
@@ -108,10 +118,15 @@ async def create_project(
         status=project_data.status.value,
         city=project_data.city,
         district=project_data.district,
-        permit_no=project_data.permit_no,
         security_guard_phone=project_data.security_guard_phone,
         property_manager_phone=project_data.property_manager_phone,
-        map_url=project_data.map_url
+        map_url=project_data.map_url,
+        contract_no=project_data.contract_no,
+        contract_status=project_data.contract_status.value,
+        contract_duration=project_data.contract_duration,
+        commission_percent=project_data.commission_percent,
+        bank_name=project_data.bank_name,
+        bank_iban=project_data.bank_iban
     )
     
     db.add(new_project)
@@ -125,10 +140,15 @@ async def create_project(
         status=new_project.status,
         city=new_project.city,
         district=new_project.district,
-        permit_no=new_project.permit_no,
         security_guard_phone=new_project.security_guard_phone,
         property_manager_phone=new_project.property_manager_phone,
         map_url=new_project.map_url,
+        contract_no=new_project.contract_no,
+        contract_status=new_project.contract_status,
+        contract_duration=new_project.contract_duration,
+        commission_percent=new_project.commission_percent,
+        bank_name=new_project.bank_name,
+        bank_iban=new_project.bank_iban,
         owner_name=owner.owner_name,
         unit_count=0,
         created_at=new_project.created_at,
@@ -153,7 +173,7 @@ async def update_project(
     
     update_data = project_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
-        if field == "status" and value:
+        if field in ["status", "contract_status"] and value:
             setattr(project, field, value.value)
         else:
             setattr(project, field, value)
@@ -168,10 +188,15 @@ async def update_project(
         status=project.status,
         city=project.city,
         district=project.district,
-        permit_no=project.permit_no,
         security_guard_phone=project.security_guard_phone,
         property_manager_phone=project.property_manager_phone,
         map_url=project.map_url,
+        contract_no=project.contract_no,
+        contract_status=project.contract_status,
+        contract_duration=project.contract_duration,
+        commission_percent=project.commission_percent,
+        bank_name=project.bank_name,
+        bank_iban=project.bank_iban,
         owner_name=project.owner.owner_name if project.owner else "غير معروف",
         unit_count=len(project.units),
         created_at=project.created_at,
