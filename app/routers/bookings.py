@@ -6,15 +6,22 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from ..database import get_db
-from ..models.booking import Booking
+from ..models.booking import Booking, BookingStatus as BookingStatusEnum
 from ..models.unit import Unit
 from ..models.project import Project
+from ..models.customer import Customer
 from ..schemas.booking import (
     BookingResponse, BookingCreate, BookingUpdate, 
     BookingStatusUpdate, BookingAvailabilityCheck
 )
 from ..utils.dependencies import get_current_user
 from ..models.user import User
+from ..services.employee_performance_service import (
+    EmployeePerformanceService,
+    log_booking_created, log_booking_completed, log_booking_cancelled,
+    log_customer_created
+)
+from ..models.employee_performance import ActivityType
 
 router = APIRouter(prefix="/api/bookings", tags=["الحجوزات"])
 
@@ -29,7 +36,7 @@ def check_booking_overlap(
     """التحقق من تداخل الحجوزات"""
     query = db.query(Booking).filter(
         Booking.unit_id == unit_id,
-        Booking.status.in_(["مؤكد", "قيد الانتظار"]),
+        Booking.status.in_(["مؤكد", "دخول"]),
         Booking.check_in_date < check_out,
         Booking.check_out_date > check_in
     )
@@ -164,7 +171,8 @@ async def check_availability(
     }
 
 
-@router.get("/{booking_id}", response_model=BookingResponse)
+@router.get("/{booking_id}")
+@router.get("/{booking_id}/", response_model=BookingResponse)
 async def get_booking(
     booking_id: str,
     db: Session = Depends(get_db),
@@ -222,22 +230,59 @@ async def create_booking(
             detail="يوجد تداخل مع حجز آخر في هذه الفترة"
         )
     
-    project = unit.project
+    # البحث عن العميل أو إنشائه بناءً على رقم الجوال
+    customer = None
+    customer_id = None
+    if booking_data.guest_phone:
+        customer = db.query(Customer).filter(Customer.phone == booking_data.guest_phone).first()
+        
+        if customer:
+            # التحقق من حظر العميل
+            if customer.is_banned:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"العميل محظور. السبب: {customer.ban_reason or 'غير محدد'}"
+                )
+            # تحديث اسم العميل وزيادة عدد الحجوزات
+            customer.name = booking_data.guest_name
+            customer.booking_count += 1
+            customer_id = customer.id
+        else:
+            # إنشاء عميل جديد
+            customer = Customer(
+                name=booking_data.guest_name,
+                phone=booking_data.guest_phone,
+                booking_count=1
+            )
+            db.add(customer)
+            db.flush()  # للحصول على ID قبل الـ commit
+            customer_id = customer.id
     
+    # تسجيل الموظف الذي أنشأ الحجز
+    project = unit.project
     new_booking = Booking(
         unit_id=booking_data.unit_id,
+        customer_id=customer_id,
         guest_name=booking_data.guest_name,
         guest_phone=booking_data.guest_phone,
         check_in_date=booking_data.check_in_date,
         check_out_date=booking_data.check_out_date,
         total_price=booking_data.total_price,
         status=booking_data.status.value,
-        notes=booking_data.notes
+        notes=booking_data.notes,
+        created_by_id=current_user.id
     )
     
     db.add(new_booking)
     db.commit()
     db.refresh(new_booking)
+    
+    # تسجيل نشاط إنشاء الحجز
+    log_booking_created(db, current_user.id, new_booking.id, float(booking_data.total_price))
+    
+    # تسجيل نشاط إضافة عميل جديد إذا تم إنشاؤه
+    if customer and not db.query(Customer).filter(Customer.id == customer_id, Customer.booking_count > 1).first():
+        log_customer_created(db, current_user.id, customer_id)
     
     return BookingResponse(
         id=new_booking.id,
@@ -252,12 +297,16 @@ async def create_booking(
         project_id=project.id if project else "",
         project_name=project.name if project else "غير معروف",
         unit_name=unit.unit_name,
+        customer_id=customer_id,
+        customer_name=customer.name if customer else None,
+        customer_is_banned=customer.is_banned if customer else False,
         created_at=new_booking.created_at,
         updated_at=new_booking.updated_at
     )
 
 
-@router.put("/{booking_id}", response_model=BookingResponse)
+@router.put("/{booking_id}")
+@router.put("/{booking_id}/", response_model=BookingResponse)
 async def update_booking(
     booking_id: str,
     booking_data: BookingUpdate,
@@ -290,8 +339,21 @@ async def update_booking(
         else:
             setattr(booking, field, value)
     
+    # تسجيل الموظف الذي عدل الحجز
+    booking.updated_by_id = current_user.id
+    
     db.commit()
     db.refresh(booking)
+    
+    # تسجيل نشاط تعديل الحجز
+    service = EmployeePerformanceService(db)
+    service.log_activity(
+        employee_id=current_user.id,
+        activity_type=ActivityType.BOOKING_UPDATED,
+        entity_type="booking",
+        entity_id=booking.id,
+        description=f"تعديل حجز: {booking.guest_name}"
+    )
     
     unit = booking.unit
     project = unit.project if unit else None
@@ -314,7 +376,8 @@ async def update_booking(
     )
 
 
-@router.patch("/{booking_id}/status", response_model=BookingResponse)
+@router.patch("/{booking_id}/status")
+@router.patch("/{booking_id}/status/", response_model=BookingResponse)
 async def update_booking_status(
     booking_id: str,
     status_data: BookingStatusUpdate,
@@ -329,9 +392,33 @@ async def update_booking_status(
             detail="الحجز غير موجود"
         )
     
-    booking.status = status_data.status.value
+    old_status = booking.status
+    new_status = status_data.status.value
+    booking.status = new_status
+    booking.updated_by_id = current_user.id
     db.commit()
     db.refresh(booking)
+    
+    # تسجيل النشاط حسب الحالة الجديدة
+    service = EmployeePerformanceService(db)
+    if new_status == "مكتمل":
+        log_booking_completed(db, current_user.id, booking.id, float(booking.total_price))
+    elif new_status == "ملغي":
+        log_booking_cancelled(db, current_user.id, booking.id)
+    elif new_status == "دخول":
+        service.log_activity(
+            employee_id=current_user.id,
+            activity_type=ActivityType.BOOKING_CHECKED_IN,
+            entity_type="booking",
+            entity_id=booking.id
+        )
+    elif new_status == "خروج":
+        service.log_activity(
+            employee_id=current_user.id,
+            activity_type=ActivityType.BOOKING_CHECKED_OUT,
+            entity_type="booking",
+            entity_id=booking.id
+        )
     
     unit = booking.unit
     project = unit.project if unit else None
@@ -355,6 +442,7 @@ async def update_booking_status(
 
 
 @router.delete("/{booking_id}")
+@router.delete("/{booking_id}/")
 async def delete_booking(
     booking_id: str,
     db: Session = Depends(get_db),

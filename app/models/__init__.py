@@ -5,5 +5,21 @@ from .project import Project
 from .unit import Unit
 from .booking import Booking
 from .transaction import Transaction
+from .customer import Customer
+from .employee_performance import (
+    EmployeeActivityLog,
+    EmployeeTarget,
+    EmployeePerformanceSummary,
+    ActivityType,
+    TargetPeriod,
+    ACTIVITY_LABELS,
+    ACTIVITY_BY_ROLE,
+    KPIDefinition
+)
 
-__all__ = ["User", "Owner", "Project", "Unit", "Booking", "Transaction"]
+__all__ = [
+    "User", "Owner", "Project", "Unit", "Booking", "Transaction", "Customer",
+    "EmployeeActivityLog", "EmployeeTarget", "EmployeePerformanceSummary",
+    "ActivityType", "TargetPeriod", "ACTIVITY_LABELS", "ACTIVITY_BY_ROLE", "KPIDefinition"
+]
+

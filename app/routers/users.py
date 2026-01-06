@@ -45,7 +45,8 @@ async def get_current_user_profile(
     return current_user
 
 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}")
+@router.get("/{user_id}/", response_model=UserResponse)
 async def get_user(
     user_id: str,
     db: Session = Depends(get_db),
@@ -117,7 +118,8 @@ async def create_user(
     return new_user
 
 
-@router.put("/{user_id}", response_model=UserResponse)
+@router.put("/{user_id}")
+@router.put("/{user_id}/", response_model=UserResponse)
 async def update_user(
     user_id: str,
     user_data: UserUpdate,
@@ -222,6 +224,7 @@ async def toggle_user_active(
 
 
 @router.delete("/{user_id}")
+@router.delete("/{user_id}/")
 async def delete_user(
     user_id: str,
     db: Session = Depends(get_db),

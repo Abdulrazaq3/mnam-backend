@@ -8,6 +8,8 @@ from ..models.project import Project
 from ..schemas.unit import UnitResponse, UnitCreate, UnitUpdate, UnitSimple, UnitForSelect
 from ..utils.dependencies import get_current_user, require_owners_agent
 from ..models.user import User
+from ..services.employee_performance_service import log_unit_created, EmployeePerformanceService
+from ..models.employee_performance import ActivityType
 
 router = APIRouter(prefix="/api/units", tags=["الوحدات"])
 
@@ -93,7 +95,8 @@ async def get_units_for_select(
     ]
 
 
-@router.get("/{unit_id}", response_model=UnitResponse)
+@router.get("/{unit_id}")
+@router.get("/{unit_id}/", response_model=UnitResponse)
 async def get_unit(
     unit_id: str,
     db: Session = Depends(get_db),
@@ -160,12 +163,16 @@ async def create_unit(
         price_in_weekends=unit_data.price_in_weekends,
         amenities=unit_data.amenities,
         description=unit_data.description,
-        permit_no=unit_data.permit_no
+        permit_no=unit_data.permit_no,
+        created_by_id=current_user.id
     )
     
     db.add(new_unit)
     db.commit()
     db.refresh(new_unit)
+    
+    # تسجيل نشاط إضافة وحدة
+    log_unit_created(db, current_user.id, new_unit.id)
     
     owner_name = project.owner.owner_name if project.owner else "غير معروف"
     
@@ -191,7 +198,8 @@ async def create_unit(
     )
 
 
-@router.put("/{unit_id}", response_model=UnitResponse)
+@router.put("/{unit_id}")
+@router.put("/{unit_id}/", response_model=UnitResponse)
 async def update_unit(
     unit_id: str,
     unit_data: UnitUpdate,
@@ -207,14 +215,37 @@ async def update_unit(
         )
     
     update_data = unit_data.model_dump(exclude_unset=True)
+    old_status = unit.status
     for field, value in update_data.items():
         if field in ["unit_type", "status"] and value:
             setattr(unit, field, value.value)
         else:
             setattr(unit, field, value)
     
+    unit.updated_by_id = current_user.id
     db.commit()
     db.refresh(unit)
+    
+    # تسجيل النشاط
+    service = EmployeePerformanceService(db)
+    if "status" in update_data and old_status != unit.status:
+        # تغيير حالة الوحدة
+        service.log_activity(
+            employee_id=current_user.id,
+            activity_type=ActivityType.UNIT_STATUS_CHANGED,
+            entity_type="unit",
+            entity_id=unit.id,
+            description=f"تغيير حالة {unit.unit_name}: {old_status} → {unit.status}"
+        )
+    else:
+        # تعديل عام
+        service.log_activity(
+            employee_id=current_user.id,
+            activity_type=ActivityType.UNIT_UPDATED,
+            entity_type="unit",
+            entity_id=unit.id,
+            description=f"تعديل وحدة: {unit.unit_name}"
+        )
     
     project = unit.project
     owner_name = project.owner.owner_name if project and project.owner else "غير معروف"
@@ -242,6 +273,7 @@ async def update_unit(
 
 
 @router.delete("/{unit_id}")
+@router.delete("/{unit_id}/")
 async def delete_unit(
     unit_id: str,
     db: Session = Depends(get_db),

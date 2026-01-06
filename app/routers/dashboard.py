@@ -8,6 +8,7 @@ from typing import List
 from ..database import get_db
 from ..models.booking import Booking
 from ..models.unit import Unit
+from ..models.employee_performance import EmployeeTarget
 from ..schemas.dashboard import (
     DashboardSummary, DashboardKpis, TodayFocus, 
     TodayFocusItem, UpcomingBookingSummary, EmployeePerformance
@@ -168,13 +169,41 @@ async def get_dashboard_summary(
         Booking.status.in_(["مكتمل", "دخول", "خروج"])
     ).count()
     
+    # جلب هدف الموظف الحالي
+    daily_target = 0
+    weekly_target = 0
+    current_target = db.query(EmployeeTarget).filter(
+        EmployeeTarget.employee_id == current_user.id,
+        EmployeeTarget.is_active == True,
+        EmployeeTarget.start_date <= today,
+        EmployeeTarget.end_date >= today
+    ).first()
+    
+    if current_target:
+        daily_target = current_target.target_bookings or 0
+        # الهدف الأسبوعي = الهدف اليومي × 7
+        weekly_target = daily_target * 7
+    
+    # حساب نسبة الإنجاز بناء على الهدف
+    if daily_target > 0:
+        daily_rate = round((daily_completed / daily_target * 100), 1)
+    else:
+        daily_rate = round((daily_completed / daily_bookings * 100) if daily_bookings > 0 else 0, 1)
+    
+    if weekly_target > 0:
+        weekly_rate = round((weekly_completed / weekly_target * 100), 1)
+    else:
+        weekly_rate = round((weekly_completed / weekly_bookings * 100) if weekly_bookings > 0 else 0, 1)
+    
     employee_performance = EmployeePerformance(
         daily_bookings=daily_bookings,
         daily_completed=daily_completed,
-        daily_rate=round((daily_completed / daily_bookings * 100) if daily_bookings > 0 else 0, 1),
+        daily_rate=daily_rate,
+        daily_target=daily_target,
         weekly_bookings=weekly_bookings,
         weekly_completed=weekly_completed,
-        weekly_rate=round((weekly_completed / weekly_bookings * 100) if weekly_bookings > 0 else 0, 1)
+        weekly_rate=weekly_rate,
+        weekly_target=weekly_target
     )
     
     return DashboardSummary(

@@ -10,6 +10,8 @@ from ..schemas.owner import OwnerResponse, OwnerCreate, OwnerUpdate, OwnerSimple
 from ..schemas.project import OwnerProjectSummary
 from ..utils.dependencies import get_current_user, require_owners_agent
 from ..models.user import User
+from ..services.employee_performance_service import log_owner_created, EmployeePerformanceService
+from ..models.employee_performance import ActivityType
 
 router = APIRouter(prefix="/api/owners", tags=["الملاك"])
 
@@ -53,7 +55,8 @@ async def get_owners_for_select(
     return [OwnerSimple(id=o.id, name=o.owner_name) for o in owners]
 
 
-@router.get("/{owner_id}", response_model=OwnerResponse)
+@router.get("/{owner_id}")
+@router.get("/{owner_id}/", response_model=OwnerResponse)
 async def get_owner(
     owner_id: str,
     db: Session = Depends(get_db),
@@ -118,12 +121,16 @@ async def create_owner(
         owner_name=owner_data.owner_name,
         owner_mobile_phone=owner_data.owner_mobile_phone,
         paypal_email=owner_data.paypal_email,
-        note=owner_data.note
+        note=owner_data.note,
+        created_by_id=current_user.id
     )
     
     db.add(new_owner)
     db.commit()
     db.refresh(new_owner)
+    
+    # تسجيل نشاط إضافة مالك
+    log_owner_created(db, current_user.id, new_owner.id)
     
     return OwnerResponse(
         id=new_owner.id,
@@ -138,7 +145,8 @@ async def create_owner(
     )
 
 
-@router.put("/{owner_id}", response_model=OwnerResponse)
+@router.put("/{owner_id}")
+@router.put("/{owner_id}/", response_model=OwnerResponse)
 async def update_owner(
     owner_id: str,
     owner_data: OwnerUpdate,
@@ -157,8 +165,19 @@ async def update_owner(
     for field, value in update_data.items():
         setattr(owner, field, value)
     
+    owner.updated_by_id = current_user.id
     db.commit()
     db.refresh(owner)
+    
+    # تسجيل نشاط تعديل مالك
+    service = EmployeePerformanceService(db)
+    service.log_activity(
+        employee_id=current_user.id,
+        activity_type=ActivityType.OWNER_UPDATED,
+        entity_type="owner",
+        entity_id=owner.id,
+        description=f"تعديل مالك: {owner.owner_name}"
+    )
     
     return OwnerResponse(
         id=owner.id,
@@ -174,6 +193,7 @@ async def update_owner(
 
 
 @router.delete("/{owner_id}")
+@router.delete("/{owner_id}/")
 async def delete_owner(
     owner_id: str,
     db: Session = Depends(get_db),

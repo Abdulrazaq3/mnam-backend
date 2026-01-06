@@ -216,7 +216,8 @@ async def get_team_achievement(
     )
 
 
-@router.get("/{transaction_id}", response_model=TransactionResponse)
+@router.get("/{transaction_id}")
+@router.get("/{transaction_id}/", response_model=TransactionResponse)
 async def get_transaction(
     transaction_id: str,
     db: Session = Depends(get_db),
@@ -303,7 +304,8 @@ async def create_transaction(
     )
 
 
-@router.put("/{transaction_id}", response_model=TransactionResponse)
+@router.put("/{transaction_id}")
+@router.put("/{transaction_id}/", response_model=TransactionResponse)
 async def update_transaction(
     transaction_id: str,
     transaction_data: TransactionUpdate,
@@ -347,6 +349,7 @@ async def update_transaction(
 
 
 @router.delete("/{transaction_id}")
+@router.delete("/{transaction_id}/")
 async def delete_transaction(
     transaction_id: str,
     db: Session = Depends(get_db),

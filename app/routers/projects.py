@@ -9,6 +9,8 @@ from ..models.unit import Unit
 from ..schemas.project import ProjectResponse, ProjectCreate, ProjectUpdate, ProjectSimple
 from ..utils.dependencies import get_current_user, require_owners_agent
 from ..models.user import User
+from ..services.employee_performance_service import log_project_created, EmployeePerformanceService
+from ..models.employee_performance import ActivityType
 
 router = APIRouter(prefix="/api/projects", tags=["المشاريع"])
 
@@ -28,7 +30,6 @@ async def get_all_projects(
             id=project.id,
             owner_id=project.owner_id,
             name=project.name,
-            status=project.status,
             city=project.city,
             district=project.district,
             security_guard_phone=project.security_guard_phone,
@@ -60,7 +61,8 @@ async def get_projects_for_select(
     return [ProjectSimple(id=p.id, name=p.name) for p in projects]
 
 
-@router.get("/{project_id}", response_model=ProjectResponse)
+@router.get("/{project_id}")
+@router.get("/{project_id}/", response_model=ProjectResponse)
 async def get_project(
     project_id: str,
     db: Session = Depends(get_db),
@@ -78,7 +80,6 @@ async def get_project(
         id=project.id,
         owner_id=project.owner_id,
         name=project.name,
-        status=project.status,
         city=project.city,
         district=project.district,
         security_guard_phone=project.security_guard_phone,
@@ -116,7 +117,6 @@ async def create_project(
     new_project = Project(
         owner_id=project_data.owner_id,
         name=project_data.name,
-        status=project_data.status.value,
         city=project_data.city,
         district=project_data.district,
         security_guard_phone=project_data.security_guard_phone,
@@ -127,18 +127,21 @@ async def create_project(
         contract_duration=project_data.contract_duration,
         commission_percent=project_data.commission_percent,
         bank_name=project_data.bank_name,
-        bank_iban=project_data.bank_iban
+        bank_iban=project_data.bank_iban,
+        created_by_id=current_user.id
     )
     
     db.add(new_project)
     db.commit()
     db.refresh(new_project)
     
+    # تسجيل نشاط إنشاء مشروع
+    log_project_created(db, current_user.id, new_project.id)
+    
     return ProjectResponse(
         id=new_project.id,
         owner_id=new_project.owner_id,
         name=new_project.name,
-        status=new_project.status,
         city=new_project.city,
         district=new_project.district,
         security_guard_phone=new_project.security_guard_phone,
@@ -157,7 +160,8 @@ async def create_project(
     )
 
 
-@router.put("/{project_id}", response_model=ProjectResponse)
+@router.put("/{project_id}")
+@router.put("/{project_id}/", response_model=ProjectResponse)
 async def update_project(
     project_id: str,
     project_data: ProjectUpdate,
@@ -174,19 +178,29 @@ async def update_project(
     
     update_data = project_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
-        if field in ["status", "contract_status"] and value:
+        if field == "contract_status" and value:
             setattr(project, field, value.value)
         else:
             setattr(project, field, value)
     
+    project.updated_by_id = current_user.id
     db.commit()
     db.refresh(project)
+    
+    # تسجيل نشاط تعديل مشروع
+    service = EmployeePerformanceService(db)
+    service.log_activity(
+        employee_id=current_user.id,
+        activity_type=ActivityType.PROJECT_UPDATED,
+        entity_type="project",
+        entity_id=project.id,
+        description=f"تعديل مشروع: {project.name}"
+    )
     
     return ProjectResponse(
         id=project.id,
         owner_id=project.owner_id,
         name=project.name,
-        status=project.status,
         city=project.city,
         district=project.district,
         security_guard_phone=project.security_guard_phone,
@@ -206,6 +220,7 @@ async def update_project(
 
 
 @router.delete("/{project_id}")
+@router.delete("/{project_id}/")
 async def delete_project(
     project_id: str,
     db: Session = Depends(get_db),

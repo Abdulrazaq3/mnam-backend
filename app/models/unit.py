@@ -43,6 +43,11 @@ class Unit(Base):
     amenities = Column(JSON, default=list)
     description = Column(Text, nullable=True)
     permit_no = Column(String(50), nullable=True)
+    
+    # تتبع الموظفين
+    created_by_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    updated_by_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -50,6 +55,9 @@ class Unit(Base):
     project = relationship("Project", back_populates="units")
     bookings = relationship("Booking", back_populates="unit", cascade="all, delete-orphan")
     transactions = relationship("Transaction", back_populates="unit")
+    created_by = relationship("User", foreign_keys=[created_by_id])
+    updated_by = relationship("User", foreign_keys=[updated_by_id])
     
     def __repr__(self):
         return f"<Unit {self.unit_name}>"
+

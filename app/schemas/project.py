@@ -5,22 +5,15 @@ from decimal import Decimal
 from enum import Enum
 
 
-class ProjectStatus(str, Enum):
-    AVAILABLE = "متاح"
-    FULLY_BOOKED = "محجوز بالكامل"
-    EMPTY = "فارغ"
-
-
 class ContractStatus(str, Enum):
     ACTIVE = "ساري"
     EXPIRED = "منتهي"
-    PENDING = "قيد التوقيع"
+    SUSPENDED = "موقف مؤقتاً"
 
 
 class ProjectBase(BaseModel):
     owner_id: str
     name: str
-    status: ProjectStatus = ProjectStatus.AVAILABLE
     city: Optional[str] = None
     district: Optional[str] = None
     security_guard_phone: Optional[str] = None
@@ -28,7 +21,7 @@ class ProjectBase(BaseModel):
     map_url: Optional[str] = None
     # حقول العقد
     contract_no: Optional[str] = None
-    contract_status: ContractStatus = ContractStatus.PENDING
+    contract_status: ContractStatus = ContractStatus.ACTIVE
     contract_duration: Optional[str] = None
     commission_percent: Decimal = Decimal("0")
     bank_name: Optional[str] = None
@@ -42,7 +35,6 @@ class ProjectCreate(ProjectBase):
 class ProjectUpdate(BaseModel):
     owner_id: Optional[str] = None
     name: Optional[str] = None
-    status: Optional[ProjectStatus] = None
     city: Optional[str] = None
     district: Optional[str] = None
     security_guard_phone: Optional[str] = None

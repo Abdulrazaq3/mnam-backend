@@ -8,7 +8,7 @@ from .models.user import User, UserRole, SYSTEM_OWNER_DATA
 from .utils.security import hash_password
 
 # Import all routers
-from .routers import auth, users, owners, projects, units, bookings, transactions, dashboard, ai
+from .routers import auth, users, owners, projects, units, bookings, transactions, dashboard, ai, customers, employee_performance
 
 
 @asynccontextmanager
@@ -92,11 +92,14 @@ app.include_router(owners.router)
 app.include_router(projects.router)
 app.include_router(units.router)
 app.include_router(bookings.router)
+app.include_router(customers.router)
 app.include_router(transactions.router)
 app.include_router(dashboard.router)
 app.include_router(ai.router)
+app.include_router(employee_performance.router)
 
 
+@app.get("")
 @app.get("/")
 async def root():
     """Root endpoint"""
@@ -109,6 +112,7 @@ async def root():
 
 
 @app.get("/health")
+@app.get("/health/")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}

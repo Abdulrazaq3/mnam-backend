@@ -7,9 +7,10 @@ from enum import Enum
 
 class BookingStatus(str, Enum):
     CONFIRMED = "مؤكد"
-    PENDING = "قيد الانتظار"
     CANCELLED = "ملغي"
     COMPLETED = "مكتمل"
+    CHECKED_IN = "دخول"
+    CHECKED_OUT = "خروج"
 
 
 class BookingBase(BaseModel):
@@ -19,7 +20,7 @@ class BookingBase(BaseModel):
     check_in_date: date
     check_out_date: date
     total_price: Decimal = Decimal("0")
-    status: BookingStatus = BookingStatus.PENDING
+    status: BookingStatus = BookingStatus.CONFIRMED
     notes: Optional[str] = None
 
 
@@ -31,7 +32,7 @@ class BookingCreate(BaseModel):
     check_in_date: date
     check_out_date: date
     total_price: Decimal
-    status: BookingStatus = BookingStatus.PENDING
+    status: BookingStatus = BookingStatus.CONFIRMED
     notes: Optional[str] = None
 
 
@@ -54,6 +55,9 @@ class BookingResponse(BookingBase):
     project_id: str = ""
     project_name: str = ""
     unit_name: str = ""
+    customer_id: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_is_banned: bool = False
     created_at: datetime
     updated_at: datetime
     

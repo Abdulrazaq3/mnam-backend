@@ -43,9 +43,11 @@ class EmployeePerformance(BaseModel):
     daily_bookings: int = 0
     daily_completed: int = 0
     daily_rate: float = 0.0
+    daily_target: int = 0
     weekly_bookings: int = 0
     weekly_completed: int = 0
     weekly_rate: float = 0.0
+    weekly_target: int = 0
 
 
 class DashboardSummary(BaseModel):
