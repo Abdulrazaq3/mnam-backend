@@ -81,7 +81,10 @@ app.add_middleware(
     allow_origins=[
         "https://mnam.vercel.app",
         "https://mnam-sys.vercel.app",
+        "https://mnam-sys-dash.vercel.app",
         "http://localhost:5173",
+        "https://mnam-sys-dash.vercel.app/",
+
     ],
     allow_credentials=False,   # True فقط لو Cookies
     allow_methods=["*"],
