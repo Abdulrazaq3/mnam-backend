@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🔌 MNAM Backend API | خادم مِنَام
+# 🔌 MNAM Backend API | خادم منَام
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0+-red?style=flat-square)](https://www.sqlalchemy.org/)
